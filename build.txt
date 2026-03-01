@@ -1,0 +1,61 @@
+ReserveX Restaurant Reservation System:
+
+Will be using Django
+PostgreSQL database in supabase
+Vercel to deploy
+Tailwind CSS CDN: <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+Templates folder to keep pages.
+Giveme demo data to load from demodata.json
+I will be using PostgreSQL locally then later I will deploy in supabase
+
+1. Homepage:
+
+In Nav bar there will be ReserveX on Left Corner. and Login profile Circle Avatar (clickable) on left. After clicking on avatar, it will show profile, logout, dashboard. If the user is logged out then it will show Login/SignUp
+
+It will show Name of Restaurant, Location, Review and a "See Details" and "Book Now" button
+Max 10 Restaurant will be in 1 page. There will be pagination.
+
+Every Restaurant will have card. Maximum 3 Restaurant card in 1 row for Desktop or Laptop, 2 Cards in 1 row for Tablet, 1 card in 1 row for mobile devices. 
+
+2. Each Restaurant Page:
+
+will show menu item with price
+
+seat available with tag W for window and C for corner along with maximum guest can set
+
+user can select time, date and also can add menu item they want to eat. Time Slot will be 1 hour. User can extend another hour but not more than 2 hour. Date and Time Slot can be selected. Name and Phone number will load from user's profile. User must be logged in to order food.
+
+3. Payment integration like the example.
+if payment success, it will show success page and update everything.
+if payment failed, it will show failed and return to home page and show the booking pending for 1 minute
+
+
+4. User Dashboard:
+
+user can be able to see which restaurant he visits more, previous bookings and booking status and things that will be necessary. If a graph or diagram can be shown logically then it will be good.
+
+
+5. For Admin: creator of the software
+
+can see dashboard to add user and assign them role
+1. User
+2. Manager (restaurant owner)
+3. Admin (creator of software)
+
+Admin can change role and remove Manager or a Restaurant. If no Manager of a Restaurant is left then the restaurant will be removed automatically. if restaurant is removed then all the data connected with restaurant will be removed automatically.
+
+6. Manager Dashboard:
+
+Manager can confirm booking received by user, can keep some seat reserved, can change menu, can change booking status, he can also add waiter name per table. Manager can also add number of table or remove number of table. Manger can also add new branch of their restaurant.
+
+
+7. Registration Page:
+
+User can register and will get email for confirmation and authentication
+
+8. Login Page:
+
+it will ask for email and password. it will detect automatically if it is user or manager or admin.
+
+
+If I am missing something or if it can be improved then tell me. rewrite every plan. give me folder structure and every plan in details.

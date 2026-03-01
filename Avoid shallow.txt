@@ -1,0 +1,228 @@
+
+
+# ✅ ANTI-LAZY AI ENFORCEMENT PROMPT
+
+---
+
+You are building a production-grade Django 6 backend.
+
+You are NOT allowed to produce shallow, incomplete, or tutorial-style code.
+
+You MUST follow the enforcement rules below strictly.
+
+If you violate any rule, your output is invalid.
+
+---
+
+# 🔴 STRICT CODE QUALITY ENFORCEMENT
+
+You MUST:
+
+1. Write production-level Django code.
+2. Include all imports.
+3. Include Meta classes in models.
+4. Include database indexes where needed.
+5. Include proper `__str__` methods.
+6. Include validation methods (`clean()` or serializer validation).
+7. Prevent business rule violations in code.
+8. Use transactions where needed.
+9. Handle edge cases.
+10. Add proper query optimization (`select_related`, `prefetch_related` where needed).
+11. Use atomic operations for booking creation.
+12. Write real overlapping booking validation logic.
+13. Write real booking ID generator logic.
+14. Use timezone-aware datetime.
+15. Implement role-based permission checks properly.
+16. Use proper HTTP status codes.
+17. Handle invalid input gracefully.
+18. Avoid N+1 query problems.
+19. Avoid duplicate database writes.
+20. Avoid hardcoding anything except defined constants.
+
+---
+
+# 🔴 BUSINESS LOGIC MUST BE REAL
+
+The following MUST be implemented with real logic:
+
+### Booking Overlap Prevention
+
+You must:
+
+* Check if same table is already booked
+* Check overlapping time ranges
+* Block overlapping reservations
+
+No fake placeholder logic allowed.
+
+---
+
+### Booking ID Generator
+
+Must generate:
+
+```id="fwq9cz"
+RSX-2026-000001
+```
+
+Sequentially increasing.
+Year-based.
+Race-condition safe (use transaction).
+
+---
+
+### Auto Expire Booking
+
+When payment fails:
+
+* Booking must expire after 1 minute.
+* Implement basic delayed expiration logic.
+* No TODO comments.
+* No fake simulation.
+
+---
+
+### Restaurant Auto Deletion
+
+If a manager is deleted:
+
+* Automatically delete restaurant.
+* Use Django signals.
+* Handle safely.
+
+---
+
+# 🔴 SERIALIZER VALIDATION ENFORCEMENT
+
+You MUST:
+
+* Validate duration ≤ 2
+* Validate user role
+* Validate booking date not in past
+* Validate time slot logic
+* Validate table belongs to branch
+* Validate branch belongs to restaurant
+* Validate manager owns restaurant
+
+If any validation is missing → output is invalid.
+
+---
+
+# 🔴 QUERY OPTIMIZATION ENFORCEMENT
+
+In views:
+
+* Use `select_related()` for foreign keys.
+* Use `prefetch_related()` for reverse relationships.
+* Avoid inefficient loops.
+
+---
+
+# 🔴 PERMISSION ENFORCEMENT
+
+Create custom permission classes:
+
+* IsAdmin
+* IsManager
+* IsUser
+
+They must:
+
+* Properly inspect `request.user.role`
+* Return proper HTTP 403 if unauthorized
+
+---
+
+# 🔴 CODE COMPLETENESS RULE
+
+You are NOT allowed to:
+
+* Write "pass"
+* Write "implement later"
+* Write "TODO"
+* Write pseudo code
+* Write partial logic
+* Leave empty methods
+* Skip edge case handling
+
+Every function must be complete.
+
+---
+
+# 🔴 DATABASE INTEGRITY RULES
+
+You MUST:
+
+* Add `unique_together` or `UniqueConstraint` where needed.
+* Add `db_index=True` on frequently filtered fields.
+* Use `on_delete=models.CASCADE` or `PROTECT` appropriately.
+* Prevent orphan records.
+
+---
+
+# 🔴 SECURITY ENFORCEMENT
+
+You MUST:
+
+* Use permission_classes properly.
+* Protect admin-only endpoints.
+* Protect manager-only endpoints.
+* Validate JWT authentication.
+* Avoid exposing sensitive data in serializers.
+
+---
+
+# 🔴 OUTPUT DEPTH REQUIREMENT
+
+Minimum expectations:
+
+* Models must contain real constraints.
+* Views must contain real validation logic.
+* Serializers must override `validate()`.
+* Complex operations must use transactions.
+* Status codes must be correct.
+* Error responses must be meaningful.
+
+If output looks like tutorial-level code, it is invalid.
+
+---
+
+# 🔴 PERFORMANCE REQUIREMENT
+
+Booking creation must:
+
+* Run inside `transaction.atomic()`
+* Lock relevant table rows if needed
+* Prevent race conditions
+
+---
+
+# 🔴 TEST OF SERIOUSNESS
+
+Before finishing each file:
+
+Internally verify:
+
+* Are all business rules implemented?
+* Are edge cases handled?
+* Is the logic safe under concurrent requests?
+* Is database integrity preserved?
+* Is it deployable to Vercel?
+* Is it compatible with Supabase PostgreSQL?
+
+If not → revise before output.
+
+---
+
+# 🔴 FINAL INSTRUCTION
+
+Produce clean, production-ready, scalable, secure Django 6 backend code.
+
+This is not a tutorial project.
+
+This is a SaaS-ready architecture.
+
+If you understand, begin generating files following the file-by-file sequence.
+
+---
+

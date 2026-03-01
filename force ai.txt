@@ -1,0 +1,342 @@
+You can copy-paste this directly.
+
+---
+
+# ✅ STRICT FILE-BY-FILE GENERATION PROMPT
+
+---
+
+You are going to build a complete Django 6 backend project named **ReserveX**.
+
+You MUST follow these rules strictly:
+
+---
+
+# 🔴 OUTPUT RULES (MANDATORY)
+
+1. Generate code **file by file**.
+
+2. Generate files in the exact order I specify.
+
+3. Output only ONE file per response.
+
+4. Do NOT skip files.
+
+5. Do NOT summarize.
+
+6. Do NOT explain unless I ask.
+
+7. Each response must contain:
+
+   * File path
+   * Full complete code
+   * No placeholders
+   * No pseudo code
+   * Production-ready code
+
+8. After finishing a file, stop and wait for my reply:
+
+   ```id="cmt47s"
+   NEXT
+   ```
+
+9. When I type `NEXT`, generate the next file.
+
+---
+
+# 🔴 PROJECT SPECIFICATION
+
+Project name: `reservex`
+
+Stack:
+
+* Django 6
+* PostgreSQL
+* DRF
+* SimpleJWT
+* Djoser
+* drf_yasg
+* Cloudinary
+* Whitenoise
+* Debug Toolbar
+* Vercel deployment ready
+
+All APIs must be under:
+
+```id="9cokad"
+/api/v1/
+```
+
+JWT Header type:
+
+```id="fw6mq7"
+Authorization: JWT <token>
+```
+
+---
+
+# 🔴 FILE GENERATION ORDER (STRICT)
+
+Generate files in this exact order.
+
+---
+
+## PHASE 1 — PROJECT CORE
+
+1️⃣
+
+```id="8ptfmb"
+reservex/settings.py
+```
+
+2️⃣
+
+```id="mip5nr"
+reservex/urls.py
+```
+
+3️⃣
+
+```id="s0z8t7"
+reservex/views.py
+```
+
+4️⃣
+
+```id="rtscb2"
+reservex/wsgi.py
+```
+
+5️⃣
+
+```id="2g1d4p"
+reservex/asgi.py
+```
+
+---
+
+## PHASE 2 — USERS APP
+
+6️⃣
+
+```id="mpz8jq"
+users/models.py
+```
+
+7️⃣
+
+```id="nb7n9k"
+users/serializers.py
+```
+
+8️⃣
+
+```id="xg0sjp"
+users/permissions.py
+```
+
+9️⃣
+
+```id="z4w0s6"
+users/admin.py
+```
+
+🔟
+
+```id="7lmd3q"
+users/apps.py
+```
+
+---
+
+## PHASE 3 — RESTAURANTS APP
+
+1️⃣1️⃣
+
+```id="t4ds9c"
+restaurants/models.py
+```
+
+1️⃣2️⃣
+
+```id="df3g6w"
+restaurants/serializers.py
+```
+
+1️⃣3️⃣
+
+```id="kj7h3z"
+restaurants/views.py
+```
+
+1️⃣4️⃣
+
+```id="p0qx8a"
+restaurants/urls.py
+```
+
+---
+
+## PHASE 4 — BOOKINGS APP
+
+1️⃣5️⃣
+
+```id="s9k3jd"
+bookings/models.py
+```
+
+1️⃣6️⃣
+
+```id="mx7qra"
+bookings/serializers.py
+```
+
+1️⃣7️⃣
+
+```id="vn2p8e"
+bookings/views.py
+```
+
+1️⃣8️⃣
+
+```id="lq6fnt"
+bookings/urls.py
+```
+
+---
+
+## PHASE 5 — PAYMENTS APP
+
+1️⃣9️⃣
+
+```id="hw8rkc"
+payments/models.py
+```
+
+2️⃣0️⃣
+
+```id="o5dz1m"
+payments/views.py
+```
+
+2️⃣1️⃣
+
+```id="j3xw8b"
+payments/urls.py
+```
+
+---
+
+## PHASE 6 — DASHBOARD APP
+
+2️⃣2️⃣
+
+```id="e1v9sr"
+dashboard/views.py
+```
+
+2️⃣3️⃣
+
+```id="b6tn5l"
+dashboard/urls.py
+```
+
+---
+
+## PHASE 7 — API VERSIONING
+
+2️⃣4️⃣
+
+```id="r9y5hd"
+api/v1/urls.py
+```
+
+---
+
+## PHASE 8 — CORE UTILITIES
+
+2️⃣5️⃣
+
+```id="k2px8m"
+core/signals.py
+```
+
+2️⃣6️⃣
+
+```id="d4ls7q"
+core/utils.py
+```
+
+---
+
+## PHASE 9 — PROJECT FILES
+
+2️⃣7️⃣
+
+```id="m8tz1k"
+vercel.json
+```
+
+2️⃣8️⃣
+
+```id="n0cr6v"
+demodata.json
+```
+
+---
+
+# 🔴 BUSINESS RULES (MUST IMPLEMENT IN CODE)
+
+* Custom user model with roles (USER, MANAGER, ADMIN)
+* Booking ID format: RSX-YYYY-000001
+* Max booking duration: 2 hours
+* Prevent overlapping booking for same table
+* Booking statuses:
+
+  * PENDING_PAYMENT
+  * CONFIRMED
+  * REJECTED
+  * CANCELLED
+  * EXPIRED
+  * COMPLETED
+* Payment success → CONFIRMED
+* Payment fail → auto expire in 1 minute (basic implementation)
+* Restaurant auto delete if no manager exists
+* All APIs under `/api/v1/`
+
+---
+
+# 🔴 IMPORTANT
+
+Do NOT:
+
+* Skip validation
+* Skip permissions
+* Skip imports
+* Leave TODO comments
+* Leave incomplete logic
+
+Every file must be fully production-ready.
+
+---
+
+# 🔴 START
+
+Begin with:
+
+```id="a8o6wq"
+reservex/settings.py
+```
+
+Stop after generating it.
+
+Wait for:
+
+```id="cmt47s"
+NEXT
+```
+
+---
+
+This prompt forces structured, disciplined output.
+
