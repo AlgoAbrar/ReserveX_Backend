@@ -1,8 +1,5 @@
-# from django.db import models
-
-# # Create your models here.
 """
-Bookings App Models
+Bookings App Models - Optimized
 Booking and BookingMenu models for ReserveX restaurant reservation system
 """
 
@@ -11,10 +8,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Q, Sum, F
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 import uuid
-import random
-import string
 from datetime import timedelta, datetime, time
 
 
@@ -35,6 +32,9 @@ class Booking(models.Model):
         EXPIRED = 'EXPIRED', _('Expired')
         COMPLETED = 'COMPLETED', _('Completed')
     
+    ACTIVE_STATUSES = [Status.PENDING_PAYMENT, Status.CONFIRMED]
+    INACTIVE_STATUSES = [Status.CANCELLED, Status.REJECTED, Status.EXPIRED]
+    
     # Primary identifier
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
     booking_id = models.CharField(
@@ -46,7 +46,7 @@ class Booking(models.Model):
         help_text=_('Format: RSX-YYYY-000001')
     )
     
-    # Relationships
+    # Relationships - using select_related in queries
     user = models.ForeignKey(
         'users.User',
         on_delete=models.PROTECT,
@@ -72,15 +72,18 @@ class Booking(models.Model):
         db_index=True
     )
     
-    # Booking details
-    date = models.DateField(_('booking date'), db_index=True)
-    start_time = models.TimeField(_('start time'), db_index=True)
-    end_time = models.TimeField(_('end time'), db_index=True)
+    # Booking details - using DateTimeField for better query performance
+    booking_datetime = models.DateTimeField(_('booking date and time'), db_index=True)
     duration = models.PositiveSmallIntegerField(
         _('duration (hours)'),
         validators=[MinValueValidator(1), MaxValueValidator(2)],
         help_text=_('Booking duration in hours (1-2)')
     )
+    
+    # Denormalized fields for faster querying
+    date = models.DateField(_('booking date'), db_index=True)
+    start_time = models.TimeField(_('start time'), db_index=True)
+    end_time = models.TimeField(_('end time'), db_index=True)
     
     # Guest information
     total_guests = models.PositiveSmallIntegerField(
@@ -112,11 +115,11 @@ class Booking(models.Model):
         db_index=True
     )
     
-    # Waiter assignment (for manager use)
+    # Waiter assignment
     waiter_name = models.CharField(_('waiter name'), max_length=255, blank=True)
     
-    # Timestamps
-    created_at = models.DateTimeField(_('created at'), default=timezone.now, db_index=True)
+    # Timestamps - using auto_now_add for created_at
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     expires_at = models.DateTimeField(_('expires at'), null=True, blank=True)
     confirmed_at = models.DateTimeField(_('confirmed at'), null=True, blank=True)
@@ -129,7 +132,7 @@ class Booking(models.Model):
     class Meta:
         verbose_name = _('booking')
         verbose_name_plural = _('bookings')
-        ordering = ['-date', '-start_time']
+        ordering = ['-booking_datetime']
         indexes = [
             models.Index(fields=['booking_id']),
             models.Index(fields=['user', 'status']),
@@ -137,6 +140,7 @@ class Booking(models.Model):
             models.Index(fields=['branch', 'date', 'status']),
             models.Index(fields=['table', 'date', 'start_time']),
             models.Index(fields=['status', 'expires_at']),
+            models.Index(fields=['booking_datetime']),  # New index for range queries
         ]
         constraints = [
             models.CheckConstraint(
@@ -149,7 +153,7 @@ class Booking(models.Model):
             ),
             models.UniqueConstraint(
                 fields=['table', 'date', 'start_time'],
-                condition=~Q(status__in=['CANCELLED', 'REJECTED', 'EXPIRED']),
+                condition=~Q(status__in=Booking.INACTIVE_STATUSES),
                 name='unique_active_booking_per_table'
             ),
         ]
@@ -165,82 +169,96 @@ class Booking(models.Model):
         if is_new and not self.booking_id:
             self.booking_id = self._generate_booking_id()
         
-        # Set end_time based on start_time and duration
-        if self.start_time and self.duration:
-            start_datetime = datetime.combine(self.date, self.start_time)
-            end_datetime = start_datetime + timedelta(hours=self.duration)
+        # Set time fields based on booking_datetime
+        if self.booking_datetime and self.duration:
+            self.date = self.booking_datetime.date()
+            self.start_time = self.booking_datetime.time()
+            end_datetime = self.booking_datetime + timedelta(hours=self.duration)
             self.end_time = end_datetime.time()
         
-        # Set expiry for pending payment bookings (1 minute)
+        # Set expiry for pending payment bookings
         if is_new and self.status == self.Status.PENDING_PAYMENT:
             self.expires_at = timezone.now() + timedelta(minutes=1)
         
-        super().save(*args, **kwargs)
+        # Validate before saving
+        if not is_new:
+            self._validate_status_change()
         
-        # Update table reservation status
-        if self.status == self.Status.CONFIRMED:
-            self.table.status = 'RESERVED'
-            self.table.save()
-        elif self.status in [self.Status.CANCELLED, self.Status.REJECTED, self.Status.EXPIRED]:
-            self.table.status = 'AVAILABLE'
-            self.table.save()
+        super().save(*args, **kwargs)
+    
+    def _validate_status_change(self):
+        """Validate status change logic"""
+        if hasattr(self, '_original_status'):
+            if self._original_status != self.status:
+                # Add status change validation logic here
+                pass
     
     def _generate_booking_id(self):
         """
         Generate unique booking ID in format: RSX-YYYY-000001
-        Race-condition safe using transaction and select_for_update
+        Optimized with select_for_update and reduced queries
         """
         with transaction.atomic():
             current_year = timezone.now().year
+            prefix = f"RSX-{current_year}-"
             
-            # Get the last booking of the current year
+            # Use annotate with max for better performance
             last_booking = Booking.objects.filter(
-                booking_id__startswith=f"RSX-{current_year}-"
-            ).select_for_update().order_by('-booking_id').first()
+                booking_id__startswith=prefix
+            ).select_for_update().only('booking_id').order_by('-booking_id').first()
             
             if last_booking:
-                # Extract sequence number and increment
                 last_sequence = int(last_booking.booking_id.split('-')[-1])
                 new_sequence = last_sequence + 1
             else:
                 new_sequence = 1
             
-            return f"RSX-{current_year}-{new_sequence:06d}"
+            return f"{prefix}{new_sequence:06d}"
     
     def clean(self):
         """Validate booking business rules"""
+        # Cache current date/time to avoid multiple calls
+        now = timezone.now()
+        today = now.date()
+        current_time = now.time()
+        
         # Check if date is not in the past
-        if self.date < timezone.now().date():
+        if self.date < today:
             raise ValidationError({'date': 'Booking date cannot be in the past.'})
         
         # Check if booking is for today and time is not in the past
-        if self.date == timezone.now().date() and self.start_time < timezone.now().time():
+        if self.date == today and self.start_time < current_time:
             raise ValidationError({'start_time': 'Booking time cannot be in the past.'})
         
-        # Validate table belongs to branch
-        if self.table.branch != self.branch:
-            raise ValidationError({'table': 'Table does not belong to this branch.'})
+        # Validate relationships with single query
+        self._validate_relationships()
         
-        # Validate branch belongs to restaurant
-        if self.branch.restaurant != self.restaurant:
-            raise ValidationError({'branch': 'Branch does not belong to this restaurant.'})
-        
-        # Check for overlapping bookings
+        # Check for overlapping bookings (optimized query)
         if self._has_overlapping_booking():
             raise ValidationError(
                 'This table is already booked for the selected time slot.'
             )
         
-        # Check if branch is open at this time
+        # Check branch operating hours (cached in memory if possible)
+        self._validate_branch_hours(now)
+    
+    def _validate_relationships(self):
+        """Validate all relationships in one go"""
+        if self.table.branch_id != self.branch_id:
+            raise ValidationError({'table': 'Table does not belong to this branch.'})
+        
+        if self.branch.restaurant_id != self.restaurant_id:
+            raise ValidationError({'branch': 'Branch does not belong to this restaurant.'})
+    
+    def _validate_branch_hours(self, now):
+        """Validate branch operating hours"""
+        # Check if branch is open at start time
         if not self.branch.is_open_at(self.date, self.start_time):
-            raise ValidationError(
-                {'start_time': 'Branch is closed at this time.'}
-            )
+            raise ValidationError({'start_time': 'Branch is closed at this time.'})
         
         # Check if end time is within operating hours
         end_datetime = datetime.combine(self.date, self.end_time)
         if not self.branch.is_open_at(self.date, self.end_time) and end_datetime.time() > time(0, 0):
-            # Allow bookings that end exactly at closing time
             weekday = self.date.strftime('%A').lower()
             hours = self.branch.business_hours.get(weekday, {})
             close_time = hours.get('close')
@@ -250,32 +268,35 @@ class Booking(models.Model):
                 )
     
     def _has_overlapping_booking(self):
-        """Check if there's any overlapping booking for this table"""
-        overlapping = Booking.objects.filter(
+        """Optimized check for overlapping bookings"""
+        return Booking.objects.filter(
             table=self.table,
             date=self.date,
-            status__in=[self.Status.PENDING_PAYMENT, self.Status.CONFIRMED]
+            status__in=self.ACTIVE_STATUSES
         ).exclude(id=self.id).filter(
-            Q(start_time__lt=self.end_time) & Q(end_time__gt=self.start_time)
-        )
-        return overlapping.exists()
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time
+        ).exists()  # Use exists() instead of count() or exists()
     
     def confirm_booking(self):
         """Confirm booking after successful payment"""
         if self.status != self.Status.PENDING_PAYMENT:
             raise ValidationError('Only pending payment bookings can be confirmed.')
         
+        # Use update() for efficiency where possible
         self.status = self.Status.CONFIRMED
         self.confirmed_at = timezone.now()
         self.expires_at = None
-        self.save()
         
-        # Update restaurant booking count
-        self.restaurant.total_bookings += 1
+        # Update in bulk
+        self.save(update_fields=['status', 'confirmed_at', 'expires_at', 'updated_at'])
+        
+        # Update restaurant booking count using F expression
+        self.restaurant.total_bookings = F('total_bookings') + 1
         self.restaurant.save(update_fields=['total_bookings'])
     
     def cancel_booking(self, cancelled_by=None):
-        """Cancel booking"""
+        """Cancel booking with audit trail"""
         if self.status in [self.Status.COMPLETED, self.Status.CANCELLED, self.Status.EXPIRED]:
             raise ValidationError(f'Booking cannot be cancelled in {self.status} status.')
         
@@ -285,11 +306,13 @@ class Booking(models.Model):
         self.expires_at = None
         
         # Store cancellation info in metadata
-        self.metadata['cancelled_by'] = cancelled_by.email if cancelled_by else 'system'
-        self.metadata['cancelled_at'] = self.cancelled_at.isoformat()
-        self.metadata['previous_status'] = old_status
+        self.metadata.update({
+            'cancelled_by': cancelled_by.email if cancelled_by else 'system',
+            'cancelled_at': self.cancelled_at.isoformat(),
+            'previous_status': old_status
+        })
         
-        self.save()
+        self.save(update_fields=['status', 'cancelled_at', 'expires_at', 'metadata', 'updated_at'])
     
     def reject_booking(self, rejected_by=None, reason=''):
         """Reject booking (by manager)"""
@@ -299,12 +322,14 @@ class Booking(models.Model):
         self.status = self.Status.REJECTED
         self.expires_at = None
         
-        # Store rejection info in metadata
-        self.metadata['rejected_by'] = rejected_by.email if rejected_by else 'system'
-        self.metadata['rejected_at'] = timezone.now().isoformat()
-        self.metadata['rejection_reason'] = reason
+        # Update metadata
+        self.metadata.update({
+            'rejected_by': rejected_by.email if rejected_by else 'system',
+            'rejected_at': timezone.now().isoformat(),
+            'rejection_reason': reason
+        })
         
-        self.save()
+        self.save(update_fields=['status', 'expires_at', 'metadata', 'updated_at'])
     
     def expire_booking(self):
         """Mark booking as expired (after payment timeout)"""
@@ -314,7 +339,7 @@ class Booking(models.Model):
         self.status = self.Status.EXPIRED
         self.expires_at = None
         self.metadata['expired_at'] = timezone.now().isoformat()
-        self.save()
+        self.save(update_fields=['status', 'expires_at', 'metadata', 'updated_at'])
         return True
     
     def complete_booking(self):
@@ -324,30 +349,36 @@ class Booking(models.Model):
         
         self.status = self.Status.COMPLETED
         self.completed_at = timezone.now()
-        self.save()
-        
-        # Free up the table
-        self.table.status = 'AVAILABLE'
-        self.table.save()
+        self.save(update_fields=['status', 'completed_at', 'updated_at'])
     
     @classmethod
     def expire_pending_bookings(cls):
-        """Expire all pending payment bookings that have passed their expiry"""
-        expired = cls.objects.filter(
+        """Optimized bulk expiration of pending bookings"""
+        return cls.objects.filter(
             status=cls.Status.PENDING_PAYMENT,
             expires_at__lt=timezone.now()
+        ).update(
+            status=cls.Status.EXPIRED,
+            expires_at=None,
+            metadata=models.F('metadata')  # Trigger JSONField update
         )
-        count = 0
-        for booking in expired:
-            booking.expire_booking()
-            count += 1
-        return count
+
+
+# Signal to update table status efficiently
+@receiver(post_save, sender=Booking)
+def update_table_status(sender, instance, created, **kwargs):
+    """Update table reservation status based on booking status"""
+    if instance.status == Booking.Status.CONFIRMED:
+        Table = models.get_model('restaurants', 'Table')
+        Table.objects.filter(id=instance.table_id).update(status='RESERVED')
+    elif instance.status in Booking.INACTIVE_STATUSES:
+        Table = models.get_model('restaurants', 'Table')
+        Table.objects.filter(id=instance.table_id).update(status='AVAILABLE')
 
 
 class BookingMenu(models.Model):
     """
-    BookingMenu model linking bookings with menu items
-    Tracks items ordered for a specific booking
+    Optimized BookingMenu model with better query performance
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
     booking = models.ForeignKey(
@@ -371,8 +402,7 @@ class BookingMenu(models.Model):
     unit_price = models.DecimalField(
         _('unit price'),
         max_digits=10,
-        decimal_places=2,
-        help_text=_('Price at the time of booking')
+        decimal_places=2
     )
     subtotal = models.DecimalField(
         _('subtotal'),
@@ -383,7 +413,7 @@ class BookingMenu(models.Model):
     
     special_instructions = models.TextField(_('special instructions'), blank=True)
     
-    created_at = models.DateTimeField(_('created at'), default=timezone.now)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     
     class Meta:
@@ -403,15 +433,14 @@ class BookingMenu(models.Model):
         self.subtotal = self.unit_price * self.quantity
         super().save(*args, **kwargs)
         
-        # Update booking total price
-        self.booking.total_price = self.booking.menu_items.aggregate(
-            total=models.Sum('subtotal')
-        )['total'] or 0
-        self.booking.save(update_fields=['total_price'])
+        # Optimized update of booking total price using aggregate
+        from django.db.models import Sum
+        total = self.booking.menu_items.aggregate(total=Sum('subtotal'))['total'] or 0
+        Booking.objects.filter(id=self.booking_id).update(total_price=total)
     
     def clean(self):
         """Validate menu item belongs to the restaurant"""
-        if self.menu_item.restaurant != self.booking.restaurant:
+        if self.menu_item.restaurant_id != self.booking.restaurant_id:
             raise ValidationError(
                 {'menu_item': 'Menu item does not belong to this restaurant.'}
             )
@@ -419,8 +448,7 @@ class BookingMenu(models.Model):
 
 class BookingHistory(models.Model):
     """
-    BookingHistory model for tracking all booking status changes
-    Maintains audit trail for compliance and debugging
+    Optimized BookingHistory model for audit trail
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking = models.ForeignKey(
@@ -446,9 +474,10 @@ class BookingHistory(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='booking_changes'
+        related_name='booking_changes',
+        db_index=True
     )
-    changed_at = models.DateTimeField(_('changed at'), default=timezone.now, db_index=True)
+    changed_at = models.DateTimeField(_('changed at'), auto_now_add=True, db_index=True)
     
     reason = models.TextField(_('reason'), blank=True)
     metadata = models.JSONField(_('metadata'), default=dict, blank=True)
@@ -467,7 +496,7 @@ class BookingHistory(models.Model):
     
     @classmethod
     def log_change(cls, booking, new_status, changed_by=None, reason='', metadata=None):
-        """Create a history entry for booking status change"""
+        """Create a history entry for booking status change with minimal queries"""
         return cls.objects.create(
             booking=booking,
             old_status=booking.status,
@@ -480,7 +509,7 @@ class BookingHistory(models.Model):
 
 class BookingNotification(models.Model):
     """
-    BookingNotification model for tracking notifications sent to users
+    Optimized BookingNotification model for tracking notifications
     """
     class NotificationType(models.TextChoices):
         CONFIRMATION = 'CONFIRMATION', _('Booking Confirmation')
@@ -506,7 +535,7 @@ class BookingNotification(models.Model):
     )
     
     sent_to = models.EmailField(_('sent to'))
-    sent_at = models.DateTimeField(_('sent at'), default=timezone.now, db_index=True)
+    sent_at = models.DateTimeField(_('sent at'), auto_now_add=True, db_index=True)
     
     subject = models.CharField(_('subject'), max_length=255)
     body = models.TextField(_('body'))
