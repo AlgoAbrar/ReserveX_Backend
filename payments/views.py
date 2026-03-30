@@ -597,15 +597,15 @@ class PaymentGatewayView(viewsets.GenericViewSet):
         
 #SSL Ecommerce Payment Gateway Simulation
 
-const express = require('express')
-const app = express()
+# const express = require('express')
+# const app = express()
 
-const SSLCommerzPayment = require('sslcommerz-lts')
-const store_id = '631123467'
-const store_passwd = '161810161810'
-const is_live = false //true for live, false for sandbox
+# const SSLCommerzPayment = require('sslcommerz-lts')
+# const store_id = '631123467'
+# const store_passwd = '161810161810'
+# const is_live = false //true for live, false for sandbox
 
-const port = 3030
+# const port = 3030
 
 //sslcommerz init
 app.get('/init', (req, res) => {
