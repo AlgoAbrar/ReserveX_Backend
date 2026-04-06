@@ -166,21 +166,41 @@ class Restaurant(models.Model):
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     
     class Meta:
-        verbose_name = _('restaurant')
-        verbose_name_plural = _('restaurants')
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['name', 'city']),
-            models.Index(fields=['cuisine_type', 'city']),
-            models.Index(fields=['average_rating', '-total_bookings']),
-            models.Index(fields=['is_active', 'is_verified']),
-        ]
-        constraints = [
-            models.CheckConstraint(
-                condition=models.Q(average_rating__gte=0) & models.Q(average_rating__lte=5),
-                name='valid_average_rating'
-            ),
-        ]
+    verbose_name = _('restaurant')
+    verbose_name_plural = _('restaurants')
+    ordering = ['-created_at']
+
+    indexes = [
+        # Search / listing
+        models.Index(fields=['name'], name='restaurant_name_idx'),
+        models.Index(fields=['city'], name='restaurant_city_idx'),
+        models.Index(fields=['name', 'city'], name='restaurant_name_city_idx'),
+
+        # Filter by cuisine + location
+        models.Index(fields=['cuisine_type', 'city'], name='restaurant_cuisine_city_idx'),
+
+        # Active / verified listings
+        models.Index(fields=['is_active', 'is_verified'], name='restaurant_active_verified_idx'),
+
+        # Popular / top-rated restaurants
+        models.Index(fields=['average_rating'], name='restaurant_rating_idx'),
+        models.Index(fields=['total_bookings'], name='restaurant_bookings_idx'),
+        models.Index(fields=['average_rating', 'total_bookings'], name='restaurant_rating_bookings_idx'),
+
+        # Optional: owner / business queries (if owner field exists)
+        # models.Index(fields=['owner', 'is_active'], name='restaurant_owner_active_idx'),
+    ]
+
+    constraints = [
+        models.CheckConstraint(
+            condition=models.Q(average_rating__gte=0) & models.Q(average_rating__lte=5),
+            name='restaurant_valid_average_rating'
+        ),
+        models.CheckConstraint(
+            condition=models.Q(total_bookings__gte=0),
+            name='restaurant_valid_total_bookings'
+        ),
+    ]
     
     def __str__(self):
         return self.name
