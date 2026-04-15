@@ -166,11 +166,11 @@ class Restaurant(models.Model):
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     
     class Meta:
-    verbose_name = _('restaurant')
-    verbose_name_plural = _('restaurants')
-    ordering = ['-created_at']
+        verbose_name = _('restaurant')
+        verbose_name_plural = _('restaurants')
+        ordering = ['-created_at']
 
-    indexes = [
+        indexes = [
         # Search / listing
         models.Index(fields=['name'], name='restaurant_name_idx'),
         models.Index(fields=['city'], name='restaurant_city_idx'),
