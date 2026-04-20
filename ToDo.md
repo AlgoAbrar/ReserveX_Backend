@@ -215,7 +215,8 @@
 
 ---
 
-## PHASE 9: Deployment
+## PHASE 9: Deployment (Facing Problem with GET/POST method)❌
+keeping deployment for later. run in local host for testing
 | Status | Task | Notes |
 |--------|------|-------|
 | ✅ | Create vercel.json | Production config |
